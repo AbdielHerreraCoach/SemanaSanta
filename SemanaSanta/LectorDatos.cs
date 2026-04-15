@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Xml.Linq;
+using Microsoft.Data.SqlClient;
 
 namespace SemanaSanta
 {
     public class LectorDatos
     {
         // ==========================================
-        // 1. LECTOR DE CSV
+        // 1. LECTOR DE CSV (Con parser inteligente)
         // ==========================================
         public static List<RegistroDinamico> LeerCSV(string rutaArchivo, string nombreOrigen)
         {
@@ -110,7 +111,7 @@ namespace SemanaSanta
         }
 
         // ==========================================
-        // 4. LECTOR DE TXT (MEJORADO CON MÚLTIPLES SEPARADORES)
+        // 4. LECTOR DE TXT (Con múltiples separadores)
         // ==========================================
         public static List<RegistroDinamico> LeerTXT(string rutaArchivo, string nombreOrigen)
         {
@@ -119,10 +120,7 @@ namespace SemanaSanta
 
             if (lineas.Length <= 1) return lista;
 
-            // ¡Aquí está la magia multiformato!
             char[] separadores = new char[] { '|', ';', '\t', '^' };
-
-            // Usamos nuestra matriz de separadores. El Split cortará al encontrar CUALQUIERA de ellos.
             string[] cabeceras = lineas[0].Split(separadores);
 
             for (int i = 1; i < lineas.Length; i++)
@@ -139,6 +137,42 @@ namespace SemanaSanta
                     nuevoRegistro.Campos.Add(cabeceras[j].Trim(), valorCelda);
                 }
                 lista.Add(nuevoRegistro);
+            }
+            return lista;
+        }
+
+        // ==========================================
+        // 5. LECTOR DE SQL SERVER (NIVEL 3)
+        // ==========================================
+        public static List<RegistroDinamico> LeerSQL(string connectionString, string consulta, string nombreOrigen)
+        {
+            List<RegistroDinamico> lista = new List<RegistroDinamico>();
+
+            using (SqlConnection conexion = new SqlConnection(connectionString))
+            {
+                conexion.Open();
+                using (SqlCommand comando = new SqlCommand(consulta, conexion))
+                {
+                    using (SqlDataReader reader = comando.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            RegistroDinamico nuevoRegistro = new RegistroDinamico();
+                            nuevoRegistro.OrigenDatos = nombreOrigen;
+
+                            // Recorremos todas las columnas dinámicamente
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                string nombreColumna = reader.GetName(i);
+                                // Evitamos errores si en la base de datos hay valores NULL
+                                string valor = reader.IsDBNull(i) ? "" : reader.GetValue(i).ToString();
+
+                                nuevoRegistro.Campos.Add(nombreColumna, valor);
+                            }
+                            lista.Add(nuevoRegistro);
+                        }
+                    }
+                }
             }
             return lista;
         }

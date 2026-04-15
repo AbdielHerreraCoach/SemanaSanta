@@ -9,33 +9,20 @@ namespace SemanaSanta
 {
     public class LectorDatos
     {
-        // ==========================================
-        // 1. LECTOR DE CSV (Con parser inteligente)
-        // ==========================================
-        public static List<RegistroDinamico> LeerCSV(string rutaArchivo, string nombreOrigen)
+        public static List<RegistroDinamico> LeerCSV(string ruta, string origen)
         {
             List<RegistroDinamico> lista = new List<RegistroDinamico>();
-            string[] lineas = File.ReadAllLines(rutaArchivo);
-
+            string[] lineas = File.ReadAllLines(ruta);
             if (lineas.Length <= 1) return lista;
-
             string[] cabeceras = SepararFilaCSV(lineas[0]);
-
             for (int i = 1; i < lineas.Length; i++)
             {
                 if (string.IsNullOrWhiteSpace(lineas[i])) continue;
-
                 string[] valores = SepararFilaCSV(lineas[i]);
-                RegistroDinamico nuevoRegistro = new RegistroDinamico();
-                nuevoRegistro.OrigenDatos = nombreOrigen;
-
+                RegistroDinamico reg = new RegistroDinamico { OrigenDatos = origen };
                 for (int j = 0; j < cabeceras.Length; j++)
-                {
-                    string valorCelda = (j < valores.Length) ? valores[j] : "";
-                    valorCelda = valorCelda.Trim('"');
-                    nuevoRegistro.Campos.Add(cabeceras[j], valorCelda);
-                }
-                lista.Add(nuevoRegistro);
+                    reg.Campos.Add(cabeceras[j], j < valores.Length ? valores[j].Trim('"') : "");
+                lista.Add(reg);
             }
             return lista;
         }
@@ -43,134 +30,84 @@ namespace SemanaSanta
         private static string[] SepararFilaCSV(string linea)
         {
             List<string> columnas = new List<string>();
-            bool dentroDeComillas = false;
-            string valorActual = "";
-
-            foreach (char letra in linea)
+            bool comillas = false; string actual = "";
+            foreach (char c in linea)
             {
-                if (letra == '"') dentroDeComillas = !dentroDeComillas;
-                else if (letra == ',' && !dentroDeComillas)
-                {
-                    columnas.Add(valorActual);
-                    valorActual = "";
-                }
-                else valorActual += letra;
+                if (c == '"') comillas = !comillas;
+                else if (c == ',' && !comillas) { columnas.Add(actual); actual = ""; }
+                else actual += c;
             }
-            columnas.Add(valorActual);
-            return columnas.ToArray();
+            columnas.Add(actual); return columnas.ToArray();
         }
 
-        // ==========================================
-        // 2. LECTOR DE JSON
-        // ==========================================
-        public static List<RegistroDinamico> LeerJSON(string rutaArchivo, string nombreOrigen)
+        public static List<RegistroDinamico> LeerJSON(string ruta, string origen)
         {
             List<RegistroDinamico> lista = new List<RegistroDinamico>();
-            string jsonString = File.ReadAllText(rutaArchivo);
-
-            using (JsonDocument documento = JsonDocument.Parse(jsonString))
+            string json = File.ReadAllText(ruta);
+            using (JsonDocument doc = JsonDocument.Parse(json))
             {
-                JsonElement raiz = documento.RootElement;
-                if (raiz.ValueKind == JsonValueKind.Array)
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
                 {
-                    foreach (JsonElement elemento in raiz.EnumerateArray())
+                    foreach (JsonElement el in doc.RootElement.EnumerateArray())
                     {
-                        RegistroDinamico nuevoRegistro = new RegistroDinamico();
-                        nuevoRegistro.OrigenDatos = nombreOrigen;
-                        foreach (JsonProperty propiedad in elemento.EnumerateObject())
-                        {
-                            nuevoRegistro.Campos.Add(propiedad.Name, propiedad.Value.ToString());
-                        }
-                        lista.Add(nuevoRegistro);
+                        RegistroDinamico reg = new RegistroDinamico { OrigenDatos = origen };
+                        foreach (JsonProperty prop in el.EnumerateObject())
+                            reg.Campos.Add(prop.Name, prop.Value.ToString());
+                        lista.Add(reg);
                     }
                 }
             }
             return lista;
         }
 
-        // ==========================================
-        // 3. LECTOR DE XML
-        // ==========================================
-        public static List<RegistroDinamico> LeerXML(string rutaArchivo, string nombreOrigen)
+        public static List<RegistroDinamico> LeerXML(string ruta, string origen)
         {
             List<RegistroDinamico> lista = new List<RegistroDinamico>();
-            XDocument doc = XDocument.Load(rutaArchivo);
-
+            XDocument doc = XDocument.Load(ruta);
             foreach (XElement nodo in doc.Root.Elements())
             {
-                RegistroDinamico nuevoRegistro = new RegistroDinamico();
-                nuevoRegistro.OrigenDatos = nombreOrigen;
-
+                RegistroDinamico reg = new RegistroDinamico { OrigenDatos = origen };
                 foreach (XElement campo in nodo.Elements())
-                {
-                    nuevoRegistro.Campos.Add(campo.Name.LocalName, campo.Value);
-                }
-                lista.Add(nuevoRegistro);
+                    reg.Campos.Add(campo.Name.LocalName, campo.Value);
+                lista.Add(reg);
             }
             return lista;
         }
 
-        // ==========================================
-        // 4. LECTOR DE TXT (Con múltiples separadores)
-        // ==========================================
-        public static List<RegistroDinamico> LeerTXT(string rutaArchivo, string nombreOrigen)
+        public static List<RegistroDinamico> LeerTXT(string ruta, string origen)
         {
             List<RegistroDinamico> lista = new List<RegistroDinamico>();
-            string[] lineas = File.ReadAllLines(rutaArchivo);
-
+            string[] lineas = File.ReadAllLines(ruta);
             if (lineas.Length <= 1) return lista;
-
-            char[] separadores = new char[] { '|', ';', '\t', '^' };
-            string[] cabeceras = lineas[0].Split(separadores);
-
+            char[] sep = { '|', ';', '\t', '^' };
+            string[] cab = lineas[0].Split(sep);
             for (int i = 1; i < lineas.Length; i++)
             {
                 if (string.IsNullOrWhiteSpace(lineas[i])) continue;
-
-                string[] valores = lineas[i].Split(separadores);
-                RegistroDinamico nuevoRegistro = new RegistroDinamico();
-                nuevoRegistro.OrigenDatos = nombreOrigen;
-
-                for (int j = 0; j < cabeceras.Length; j++)
-                {
-                    string valorCelda = (j < valores.Length) ? valores[j].Trim() : "";
-                    nuevoRegistro.Campos.Add(cabeceras[j].Trim(), valorCelda);
-                }
-                lista.Add(nuevoRegistro);
+                string[] val = lineas[i].Split(sep);
+                RegistroDinamico reg = new RegistroDinamico { OrigenDatos = origen };
+                for (int j = 0; j < cab.Length; j++)
+                    reg.Campos.Add(cab[j].Trim(), j < val.Length ? val[j].Trim() : "");
+                lista.Add(reg);
             }
             return lista;
         }
 
-        // ==========================================
-        // 5. LECTOR DE SQL SERVER (NIVEL 3)
-        // ==========================================
-        public static List<RegistroDinamico> LeerSQL(string connectionString, string consulta, string nombreOrigen)
+        public static List<RegistroDinamico> LeerSQL(string connection, string query, string origen)
         {
             List<RegistroDinamico> lista = new List<RegistroDinamico>();
-
-            using (SqlConnection conexion = new SqlConnection(connectionString))
+            using (SqlConnection conn = new SqlConnection(connection))
             {
-                conexion.Open();
-                using (SqlCommand comando = new SqlCommand(consulta, conexion))
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                using (SqlDataReader rd = cmd.ExecuteReader())
                 {
-                    using (SqlDataReader reader = comando.ExecuteReader())
+                    while (rd.Read())
                     {
-                        while (reader.Read())
-                        {
-                            RegistroDinamico nuevoRegistro = new RegistroDinamico();
-                            nuevoRegistro.OrigenDatos = nombreOrigen;
-
-                            // Recorremos todas las columnas dinámicamente
-                            for (int i = 0; i < reader.FieldCount; i++)
-                            {
-                                string nombreColumna = reader.GetName(i);
-                                // Evitamos errores si en la base de datos hay valores NULL
-                                string valor = reader.IsDBNull(i) ? "" : reader.GetValue(i).ToString();
-
-                                nuevoRegistro.Campos.Add(nombreColumna, valor);
-                            }
-                            lista.Add(nuevoRegistro);
-                        }
+                        RegistroDinamico reg = new RegistroDinamico { OrigenDatos = origen };
+                        for (int i = 0; i < rd.FieldCount; i++)
+                            reg.Campos.Add(rd.GetName(i), rd.IsDBNull(i) ? "" : rd.GetValue(i).ToString());
+                        lista.Add(reg);
                     }
                 }
             }

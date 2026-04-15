@@ -54,6 +54,7 @@
             dgvDatos.Name = "dgvDatos";
             dgvDatos.Size = new Size(776, 397);
             dgvDatos.TabIndex = 1;
+            dgvDatos.ColumnHeaderMouseClick += dgvDatos_ColumnHeaderMouseClick;
             // 
             // btnCargarSQL
             // 

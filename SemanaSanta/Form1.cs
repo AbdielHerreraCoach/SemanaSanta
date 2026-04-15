@@ -7,212 +7,155 @@ namespace SemanaSanta
 {
     public partial class Form1 : Form
     {
-        // 🌟 NUESTRA LISTA MAESTRA GLOBAL (NIVEL 4)
-        // Aquí se acumulará todo lo que vayamos leyendo
         private List<RegistroDinamico> listaMaestra = new List<RegistroDinamico>();
+        private string columnaOrdenAnterior = "";
+        private bool ordenAscendente = true;
 
         public Form1()
         {
             InitializeComponent();
+            // Conectamos eventos manualmente para asegurar funcionamiento
+            txtBuscar.TextChanged += txtBuscar_TextChanged;
+            dgvDatos.ColumnHeaderMouseClick += dgvDatos_ColumnHeaderMouseClick;
         }
 
         // ==========================================
-        // EVENTO 1: CARGAR DESDE ARCHIVOS LOCALES
+        // 🛡️ EL ESCUDO PREVENTIVO (Nivel 5 Mejorado)
+        // ==========================================
+        private string ObtenerFirma(RegistroDinamico reg)
+        {
+            string firma = reg.OrigenDatos;
+            foreach (var val in reg.Campos.Values) firma += "|" + val;
+            return firma;
+        }
+
+        private void IntegrarDatosSeguros(List<RegistroDinamico> entrantes)
+        {
+            int agregados = 0; int bloqueados = 0;
+
+            // Creamos un set de firmas actuales para búsqueda rápida
+            HashSet<string> firmasExistentes = new HashSet<string>();
+            foreach (var r in listaMaestra) firmasExistentes.Add(ObtenerFirma(r));
+
+            foreach (var nuevo in entrantes)
+            {
+                if (!firmasExistentes.Contains(ObtenerFirma(nuevo)))
+                {
+                    listaMaestra.Add(nuevo);
+                    firmasExistentes.Add(ObtenerFirma(nuevo)); // Evita duplicados dentro del mismo archivo
+                    agregados++;
+                }
+                else bloqueados++;
+            }
+
+            MostrarDatosEnGrid(listaMaestra);
+            if (bloqueados > 0)
+                MessageBox.Show($"🛡️ Escudo Activo: Se agregaron {agregados} registros y se bloquearon {bloqueados} duplicados.");
+        }
+
+        // ==========================================
+        // CARGA DE DATOS
         // ==========================================
         private void btnCargarArchivo_Click(object sender, EventArgs e)
         {
-            OpenFileDialog explorador = new OpenFileDialog();
-            explorador.Title = "Selecciona tu archivo de datos";
-            explorador.Filter = "Archivos Soportados (*.csv;*.json;*.xml;*.txt)|*.csv;*.json;*.xml;*.txt|Todos los archivos (*.*)|*.*";
-
-            if (explorador.ShowDialog() == DialogResult.OK)
+            OpenFileDialog op = new OpenFileDialog();
+            op.Filter = "Soportados|*.csv;*.json;*.xml;*.txt";
+            if (op.ShowDialog() == DialogResult.OK)
             {
-                string rutaSeleccionada = explorador.FileName;
-                string nombreArchivo = Path.GetFileName(rutaSeleccionada);
-                string extension = Path.GetExtension(rutaSeleccionada).ToLower();
-
-                List<RegistroDinamico> nuevosDatos = new List<RegistroDinamico>();
-
+                string ext = Path.GetExtension(op.FileName).ToLower();
+                string nom = Path.GetFileName(op.FileName);
+                List<RegistroDinamico> datos = new List<RegistroDinamico>();
                 try
                 {
-                    if (extension == ".csv") nuevosDatos = LectorDatos.LeerCSV(rutaSeleccionada, nombreArchivo);
-                    else if (extension == ".json") nuevosDatos = LectorDatos.LeerJSON(rutaSeleccionada, nombreArchivo);
-                    else if (extension == ".xml") nuevosDatos = LectorDatos.LeerXML(rutaSeleccionada, nombreArchivo);
-                    else if (extension == ".txt") nuevosDatos = LectorDatos.LeerTXT(rutaSeleccionada, nombreArchivo);
-                    else
-                    {
-                        MessageBox.Show("Formato no soportado.", "Error");
-                        return;
-                    }
+                    if (ext == ".csv") datos = LectorDatos.LeerCSV(op.FileName, nom);
+                    else if (ext == ".json") datos = LectorDatos.LeerJSON(op.FileName, nom);
+                    else if (ext == ".xml") datos = LectorDatos.LeerXML(op.FileName, nom);
+                    else if (ext == ".txt") datos = LectorDatos.LeerTXT(op.FileName, nom);
 
-                    // 🌟 NIVEL 4: En lugar de reemplazar, AGREGAMOS a la lista maestra
-                    listaMaestra.AddRange(nuevosDatos);
-
-                    // Mostramos toda la lista acumulada
-                    MostrarDatosEnGrid(listaMaestra);
+                    IntegrarDatosSeguros(datos);
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error al leer el archivo: {ex.Message}", "Evento Sorpresa");
-                }
+                catch (Exception ex) { MessageBox.Show(ex.Message); }
             }
         }
 
-        // ==========================================
-        // EVENTO 2: CARGAR DESDE SQL SERVER
-        // ==========================================
         private void btnCargarSQL_Click(object sender, EventArgs e)
         {
-            // OJO: Recuerda poner aquí el nombre correcto de tu servidor
-            string connString = "Server=DULSERVICE\\SQLEXPRESS;Database=TiendaSanta;Trusted_Connection=True;TrustServerCertificate=True;";
-            string query = "SELECT * FROM Productos";
-
+            // CAMBIA 'server' POR EL NOMBRE DE TU INSTANCIA
+            string cs = "Server=DULSERVICE\\SQLEXPRESS;Database=TiendaSanta;Trusted_Connection=True;TrustServerCertificate=True;";
             try
             {
-                List<RegistroDinamico> datosSQL = LectorDatos.LeerSQL(connString, query, "SQL Server - Productos");
-
-                // 🌟 NIVEL 4: Agregamos lo de SQL a la lista maestra junto con los archivos
-                listaMaestra.AddRange(datosSQL);
-                MostrarDatosEnGrid(listaMaestra);
+                var sql = LectorDatos.LeerSQL(cs, "SELECT * FROM Productos", "SQL Server");
+                IntegrarDatosSeguros(sql);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al conectar o consultar SQL Server:\n\n{ex.Message}", "Error de Base de Datos");
-            }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
         }
 
         // ==========================================
-        // EVENTO 3: AGRUPAR DATOS (NIVEL 4)
+        // PROCESAMIENTO (Agrupar, Buscar, Ordenar)
         // ==========================================
         private void btnAgrupar_Click(object sender, EventArgs e)
         {
-            if (listaMaestra.Count == 0)
+            if (listaMaestra.Count == 0) return;
+            var grupos = new Dictionary<string, List<RegistroDinamico>>();
+            foreach (var r in listaMaestra)
             {
-                MessageBox.Show("Primero carga algunos datos.", "Aviso");
-                return;
+                if (!grupos.ContainsKey(r.OrigenDatos)) grupos.Add(r.OrigenDatos, new List<RegistroDinamico>());
+                grupos[r.OrigenDatos].Add(r);
             }
-
-            // 🌟 EL DICCIONARIO AGRUPADOR
-            Dictionary<string, List<RegistroDinamico>> datosAgrupados = new Dictionary<string, List<RegistroDinamico>>();
-
-            foreach (RegistroDinamico registro in listaMaestra)
-            {
-                string llaveOrigen = registro.OrigenDatos;
-
-                if (!datosAgrupados.ContainsKey(llaveOrigen))
-                {
-                    datosAgrupados.Add(llaveOrigen, new List<RegistroDinamico>());
-                }
-                datosAgrupados[llaveOrigen].Add(registro);
-            }
-
-            string mensaje = "Tus datos están organizados así:\n\n";
-            foreach (var grupo in datosAgrupados)
-            {
-                mensaje += $"📂 {grupo.Key}: {grupo.Value.Count} registros.\n";
-            }
-
-            MessageBox.Show(mensaje, "Nivel 4: Organización Completada");
+            string res = "Resumen:\n";
+            foreach (var g in grupos) res += $"- {g.Key}: {g.Value.Count}\n";
+            MessageBox.Show(res, "Nivel 4: Diccionario");
         }
 
-        // ==========================================
-        // EVENTO 4: BUSCADOR EN TIEMPO REAL (NIVEL 5 - Filtrar)
-        // ==========================================
         private void txtBuscar_TextChanged(object sender, EventArgs e)
         {
-            // 1. Convertimos lo que el usuario escribió a minúsculas para que la búsqueda no sea sensible a mayúsculas
-            string textoBusqueda = txtBuscar.Text.ToLower();
-
-            // 2. Si borró todo y el buscador está vacío, volvemos a mostrar TODA la lista maestra
-            if (string.IsNullOrWhiteSpace(textoBusqueda))
-            {
-                MostrarDatosEnGrid(listaMaestra);
-                return;
-            }
-
-            // 3. Creamos una lista temporal solo para los que coincidan
-            List<RegistroDinamico> resultadosFiltrados = new List<RegistroDinamico>();
-
-            // 4. Recorremos nuestra caja gigante de datos
-            foreach (RegistroDinamico registro in listaMaestra)
-            {
-                bool coincide = false;
-
-                // Buscamos si ALGÚN valor de las columnas de este registro contiene el texto
-                foreach (string valor in registro.Campos.Values)
-                {
-                    if (valor.ToLower().Contains(textoBusqueda))
-                    {
-                        coincide = true;
-                        break; // Con una coincidencia basta, dejamos de revisar las demás columnas
-                    }
-                }
-
-                // Si encontramos el texto en alguna columna, agregamos todo el registro a los resultados
-                if (coincide)
-                {
-                    resultadosFiltrados.Add(registro);
-                }
-            }
-
-            // 5. Le mandamos a nuestra función gráfica SOLO los datos que filtrados
-            MostrarDatosEnGrid(resultadosFiltrados);
+            string bus = txtBuscar.Text.ToLower();
+            if (string.IsNullOrEmpty(bus)) { MostrarDatosEnGrid(listaMaestra); return; }
+            var fil = listaMaestra.FindAll(r => {
+                foreach (var v in r.Campos.Values) if (v.ToLower().Contains(bus)) return true;
+                return false;
+            });
+            MostrarDatosEnGrid(fil);
         }
 
-        // ==========================================
-        // LÓGICA GRÁFICA: DIBUJAR LA SÚPER TABLA
-        // ==========================================
+        private void dgvDatos_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (listaMaestra.Count < 2) return;
+            string col = dgvDatos.Columns[e.ColumnIndex].Name;
+            ordenAscendente = (col == columnaOrdenAnterior) ? !ordenAscendente : true;
+            columnaOrdenAnterior = col;
+
+            // MÉTODO BURBUJA (Nivel 5)
+            for (int i = 0; i < listaMaestra.Count - 1; i++)
+            {
+                for (int j = 0; j < listaMaestra.Count - i - 1; j++)
+                {
+                    string v1 = col == "Origen" ? listaMaestra[j].OrigenDatos : (listaMaestra[j].Campos.ContainsKey(col) ? listaMaestra[j].Campos[col] : "");
+                    string v2 = col == "Origen" ? listaMaestra[j + 1].OrigenDatos : (listaMaestra[j + 1].Campos.ContainsKey(col) ? listaMaestra[j + 1].Campos[col] : "");
+                    int comp = string.Compare(v1, v2, StringComparison.OrdinalIgnoreCase);
+                    if (ordenAscendente ? comp > 0 : comp < 0)
+                    {
+                        var temp = listaMaestra[j]; listaMaestra[j] = listaMaestra[j + 1]; listaMaestra[j + 1] = temp;
+                    }
+                }
+            }
+            MostrarDatosEnGrid(listaMaestra);
+        }
+
         private void MostrarDatosEnGrid(List<RegistroDinamico> datos)
         {
-            dgvDatos.Columns.Clear();
-            dgvDatos.Rows.Clear();
-
+            dgvDatos.Columns.Clear(); dgvDatos.Rows.Clear();
             if (datos.Count == 0) return;
-
-            // 1. Obtener TODAS las columnas únicas (Para mezclar bases distintas sin que explote)
-            List<string> todasLasColumnas = new List<string>();
-            foreach (var registro in datos)
+            List<string> cols = new List<string>();
+            foreach (var r in datos) foreach (var k in r.Campos.Keys) if (!cols.Contains(k)) cols.Add(k);
+            dgvDatos.Columns.Add("Origen", "Origen");
+            foreach (var c in cols) dgvDatos.Columns.Add(c, c);
+            foreach (var r in datos)
             {
-                foreach (var llave in registro.Campos.Keys)
-                {
-                    if (!todasLasColumnas.Contains(llave))
-                    {
-                        todasLasColumnas.Add(llave);
-                    }
-                }
+                List<string> f = new List<string> { r.OrigenDatos };
+                foreach (var c in cols) f.Add(r.Campos.ContainsKey(c) ? r.Campos[c] : "");
+                dgvDatos.Rows.Add(f.ToArray());
             }
-
-            // 2. Crear las columnas en el Grid
-            dgvDatos.Columns.Add("Origen", "Origen de Datos");
-            foreach (string col in todasLasColumnas)
-            {
-                dgvDatos.Columns.Add(col, col);
-            }
-
-            // 3. Llenar las filas
-            foreach (var registro in datos)
-            {
-                List<string> valoresFila = new List<string>();
-                valoresFila.Add(registro.OrigenDatos);
-
-                foreach (string col in todasLasColumnas)
-                {
-                    if (registro.Campos.ContainsKey(col))
-                    {
-                        valoresFila.Add(registro.Campos[col]);
-                    }
-                    else
-                    {
-                        valoresFila.Add(""); // Si el registro no tiene esa columna, se queda en blanco
-                    }
-                }
-                dgvDatos.Rows.Add(valoresFila.ToArray());
-            }
-        }
-
-        private void txtBuscar_TextChanged_1(object sender, EventArgs e)
-        {
-
         }
     }
 }

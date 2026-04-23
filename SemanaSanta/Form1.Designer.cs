@@ -28,13 +28,19 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
             btnCargarArchivo = new Button();
             dgvDatos = new DataGridView();
             btnCargarSQL = new Button();
             btnAgrupar = new Button();
             txtBuscar = new TextBox();
             label1 = new Label();
+            btnExportar = new Button();
+            chartDatos = new System.Windows.Forms.DataVisualization.Charting.Chart();
             ((System.ComponentModel.ISupportInitialize)dgvDatos).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)chartDatos).BeginInit();
             SuspendLayout();
             // 
             // btnCargarArchivo
@@ -93,11 +99,39 @@
             label1.TabIndex = 5;
             label1.Text = "Buscar";
             // 
+            // btnExportar
+            // 
+            btnExportar.Location = new Point(282, 12);
+            btnExportar.Name = "btnExportar";
+            btnExportar.Size = new Size(75, 23);
+            btnExportar.TabIndex = 6;
+            btnExportar.Text = "Exportar";
+            btnExportar.UseVisualStyleBackColor = true;
+            btnExportar.Click += btnExportar_Click;
+            // 
+            // chartDatos
+            // 
+            chartArea1.Name = "ChartArea1";
+            chartDatos.ChartAreas.Add(chartArea1);
+            legend1.Name = "Legend1";
+            chartDatos.Legends.Add(legend1);
+            chartDatos.Location = new Point(794, 41);
+            chartDatos.Name = "chartDatos";
+            series1.ChartArea = "ChartArea1";
+            series1.Legend = "Legend1";
+            series1.Name = "Series1";
+            chartDatos.Series.Add(series1);
+            chartDatos.Size = new Size(293, 225);
+            chartDatos.TabIndex = 7;
+            chartDatos.Text = "chart1";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(1099, 450);
+            Controls.Add(chartDatos);
+            Controls.Add(btnExportar);
             Controls.Add(label1);
             Controls.Add(txtBuscar);
             Controls.Add(btnAgrupar);
@@ -107,6 +141,7 @@
             Name = "Form1";
             Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)dgvDatos).EndInit();
+            ((System.ComponentModel.ISupportInitialize)chartDatos).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -119,5 +154,7 @@
         private Button btnAgrupar;
         private TextBox txtBuscar;
         private Label label1;
+        private Button btnExportar;
+        private System.Windows.Forms.DataVisualization.Charting.Chart chartDatos;
     }
 }

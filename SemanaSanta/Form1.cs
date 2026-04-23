@@ -2,25 +2,33 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
+using System.Windows.Forms.DataVisualization.Charting;
 
 namespace SemanaSanta
 {
     public partial class Form1 : Form
     {
+        // 🌟 ALMACENAMIENTO GLOBAL (NIVEL 4)
         private List<RegistroDinamico> listaMaestra = new List<RegistroDinamico>();
+
+        // Variables para el ordenamiento (Nivel 5)
         private string columnaOrdenAnterior = "";
         private bool ordenAscendente = true;
 
         public Form1()
         {
             InitializeComponent();
-            // Conectamos eventos manualmente para asegurar funcionamiento
+
+            // 🔌 CONECTAMOS LOS CABLES
             txtBuscar.TextChanged += txtBuscar_TextChanged;
             dgvDatos.ColumnHeaderMouseClick += dgvDatos_ColumnHeaderMouseClick;
+
+            // Configuración inicial de la gráfica (opcional)
+            chartDatos.Series.Clear();
         }
 
         // ==========================================
-        // 🛡️ EL ESCUDO PREVENTIVO (Nivel 5 Mejorado)
+        // 🛡️ ESCUDO PREVENTIVO (Validación de Entrada)
         // ==========================================
         private string ObtenerFirma(RegistroDinamico reg)
         {
@@ -33,7 +41,7 @@ namespace SemanaSanta
         {
             int agregados = 0; int bloqueados = 0;
 
-            // Creamos un set de firmas actuales para búsqueda rápida
+            // Creamos un set temporal para saber qué tenemos ya en memoria
             HashSet<string> firmasExistentes = new HashSet<string>();
             foreach (var r in listaMaestra) firmasExistentes.Add(ObtenerFirma(r));
 
@@ -42,7 +50,7 @@ namespace SemanaSanta
                 if (!firmasExistentes.Contains(ObtenerFirma(nuevo)))
                 {
                     listaMaestra.Add(nuevo);
-                    firmasExistentes.Add(ObtenerFirma(nuevo)); // Evita duplicados dentro del mismo archivo
+                    firmasExistentes.Add(ObtenerFirma(nuevo));
                     agregados++;
                 }
                 else bloqueados++;
@@ -50,16 +58,16 @@ namespace SemanaSanta
 
             MostrarDatosEnGrid(listaMaestra);
             if (bloqueados > 0)
-                MessageBox.Show($"🛡️ Escudo Activo: Se agregaron {agregados} registros y se bloquearon {bloqueados} duplicados.");
+                MessageBox.Show($"🛡️ Bloqueo Preventivo: Se agregaron {agregados} y se rebotaron {bloqueados} duplicados.");
         }
 
         // ==========================================
-        // CARGA DE DATOS
+        // 📂 CARGA DE DATOS (NIVELES 1, 2, 3)
         // ==========================================
         private void btnCargarArchivo_Click(object sender, EventArgs e)
         {
             OpenFileDialog op = new OpenFileDialog();
-            op.Filter = "Soportados|*.csv;*.json;*.xml;*.txt";
+            op.Filter = "Archivos Soportados|*.csv;*.json;*.xml;*.txt";
             if (op.ShowDialog() == DialogResult.OK)
             {
                 string ext = Path.GetExtension(op.FileName).ToLower();
@@ -80,7 +88,6 @@ namespace SemanaSanta
 
         private void btnCargarSQL_Click(object sender, EventArgs e)
         {
-            // CAMBIA 'server' POR EL NOMBRE DE TU INSTANCIA
             string cs = "Server=DULSERVICE\\SQLEXPRESS;Database=TiendaSanta;Trusted_Connection=True;TrustServerCertificate=True;";
             try
             {
@@ -91,7 +98,7 @@ namespace SemanaSanta
         }
 
         // ==========================================
-        // PROCESAMIENTO (Agrupar, Buscar, Ordenar)
+        // 🧠 PROCESAMIENTO (AGRUPAR, BUSCAR, ORDENAR)
         // ==========================================
         private void btnAgrupar_Click(object sender, EventArgs e)
         {
@@ -102,20 +109,20 @@ namespace SemanaSanta
                 if (!grupos.ContainsKey(r.OrigenDatos)) grupos.Add(r.OrigenDatos, new List<RegistroDinamico>());
                 grupos[r.OrigenDatos].Add(r);
             }
-            string res = "Resumen:\n";
-            foreach (var g in grupos) res += $"- {g.Key}: {g.Value.Count}\n";
-            MessageBox.Show(res, "Nivel 4: Diccionario");
+            string res = "Resumen de Diccionario:\n";
+            foreach (var g in grupos) res += $"- {g.Key}: {g.Value.Count} registros\n";
+            MessageBox.Show(res, "Nivel 4");
         }
 
         private void txtBuscar_TextChanged(object sender, EventArgs e)
         {
             string bus = txtBuscar.Text.ToLower();
             if (string.IsNullOrEmpty(bus)) { MostrarDatosEnGrid(listaMaestra); return; }
-            var fil = listaMaestra.FindAll(r => {
+            var filtrados = listaMaestra.FindAll(r => {
                 foreach (var v in r.Campos.Values) if (v.ToLower().Contains(bus)) return true;
                 return false;
             });
-            MostrarDatosEnGrid(fil);
+            MostrarDatosEnGrid(filtrados);
         }
 
         private void dgvDatos_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
@@ -132,8 +139,7 @@ namespace SemanaSanta
                 {
                     string v1 = col == "Origen" ? listaMaestra[j].OrigenDatos : (listaMaestra[j].Campos.ContainsKey(col) ? listaMaestra[j].Campos[col] : "");
                     string v2 = col == "Origen" ? listaMaestra[j + 1].OrigenDatos : (listaMaestra[j + 1].Campos.ContainsKey(col) ? listaMaestra[j + 1].Campos[col] : "");
-                    int comp = string.Compare(v1, v2, StringComparison.OrdinalIgnoreCase);
-                    if (ordenAscendente ? comp > 0 : comp < 0)
+                    if (ordenAscendente ? string.Compare(v1, v2) > 0 : string.Compare(v1, v2) < 0)
                     {
                         var temp = listaMaestra[j]; listaMaestra[j] = listaMaestra[j + 1]; listaMaestra[j + 1] = temp;
                     }
@@ -142,12 +148,59 @@ namespace SemanaSanta
             MostrarDatosEnGrid(listaMaestra);
         }
 
+        // ==========================================
+        // 💾 EXPORTACIÓN (NIVEL 6)
+        // ==========================================
+        private void btnExportar_Click(object sender, EventArgs e)
+        {
+            if (listaMaestra.Count == 0) return;
+            SaveFileDialog sd = new SaveFileDialog { Filter = "CSV|*.csv" };
+            if (sd.ShowDialog() == DialogResult.OK)
+            {
+                List<string> lineas = new List<string>();
+                List<string> cols = ObtenerColumnasUnicas(listaMaestra);
+                lineas.Add("Origen," + string.Join(",", cols));
+                foreach (var r in listaMaestra)
+                {
+                    List<string> f = new List<string> { $"\"{r.OrigenDatos}\"" };
+                    foreach (var c in cols) f.Add($"\"{(r.Campos.ContainsKey(c) ? r.Campos[c] : "")}\"");
+                    lineas.Add(string.Join(",", f));
+                }
+                File.WriteAllLines(sd.FileName, lineas);
+                MessageBox.Show("Exportación exitosa.");
+            }
+        }
+
+        // ==========================================
+        // 📊 PANEL VISUAL (CHART)
+        // ==========================================
+        private void ActualizarGrafico(List<RegistroDinamico> datos)
+        {
+            chartDatos.Series.Clear();
+            if (datos.Count == 0) return;
+
+            Series s = new Series("Datos") { ChartType = SeriesChartType.Pie };
+            s.IsValueShownAsLabel = true;
+
+            Dictionary<string, int> conteo = new Dictionary<string, int>();
+            foreach (var r in datos)
+            {
+                if (!conteo.ContainsKey(r.OrigenDatos)) conteo.Add(r.OrigenDatos, 0);
+                conteo[r.OrigenDatos]++;
+            }
+
+            foreach (var par in conteo) s.Points.AddXY(par.Key, par.Value);
+            chartDatos.Series.Add(s);
+        }
+
+        // ==========================================
+        // LÓGICA GRÁFICA (GRID)
+        // ==========================================
         private void MostrarDatosEnGrid(List<RegistroDinamico> datos)
         {
             dgvDatos.Columns.Clear(); dgvDatos.Rows.Clear();
             if (datos.Count == 0) return;
-            List<string> cols = new List<string>();
-            foreach (var r in datos) foreach (var k in r.Campos.Keys) if (!cols.Contains(k)) cols.Add(k);
+            List<string> cols = ObtenerColumnasUnicas(datos);
             dgvDatos.Columns.Add("Origen", "Origen");
             foreach (var c in cols) dgvDatos.Columns.Add(c, c);
             foreach (var r in datos)
@@ -156,6 +209,15 @@ namespace SemanaSanta
                 foreach (var c in cols) f.Add(r.Campos.ContainsKey(c) ? r.Campos[c] : "");
                 dgvDatos.Rows.Add(f.ToArray());
             }
+            // 📈 Al final, refrescamos la gráfica automáticamente
+            ActualizarGrafico(datos);
+        }
+
+        private List<string> ObtenerColumnasUnicas(List<RegistroDinamico> lista)
+        {
+            List<string> c = new List<string>();
+            foreach (var r in lista) foreach (var k in r.Campos.Keys) if (!c.Contains(k)) c.Add(k);
+            return c;
         }
     }
 }
